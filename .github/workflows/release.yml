@@ -1,0 +1,112 @@
+name: Release macOS x64
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name to create/publish (e.g. v0.1.0) — only used for notes when dispatching"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Ensure submodule
+        run: |
+          if [[ ! -f upstream/package.json ]]; then
+            git submodule update --init --recursive
+          fi
+          test -f upstream/apps/desktop/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: upstream/package-lock.json
+
+      - name: Electron mirror (optional)
+        if: ${{ vars.ELECTRON_MIRROR != '' }}
+        run: echo "ELECTRON_MIRROR=${{ vars.ELECTRON_MIRROR }}" >> "$GITHUB_ENV"
+
+      - name: Build Desktop mac-x64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          ./scripts/setup-deps.sh
+          ./scripts/build-desktop-mac-x64.sh
+          ./scripts/verify-mac-x64.sh
+          ./scripts/sign-adhoc.sh
+
+      - name: Collect release notes
+        run: |
+          UPSTREAM_SHA=$(cd upstream && git rev-parse HEAD)
+          UPSTREAM_DESC=$(cd upstream && git describe --tags --always 2>/dev/null || echo "$UPSTREAM_SHA")
+          DESKTOP_VER=$(node -p "require('./upstream/apps/desktop/package.json').version")
+          NOTES_FILE="${RUNNER_TEMP}/release-notes.md"
+          cat > "${NOTES_FILE}" <<EOF
+          ## HDFI — unofficial Hermes Desktop for macOS Intel (x86_64)
+
+          **Not affiliated with Nous Research.** Official platform support does **not** include macOS Intel.
+
+          | | |
+          |---|---|
+          | Upstream | \`${UPSTREAM_DESC}\` (\`${UPSTREAM_SHA}\`) |
+          | Desktop package version | \`${DESKTOP_VER}\` |
+          | Built (UTC) | $(date -u +%Y-%m-%dT%H:%M:%SZ) |
+
+          ### Install notes
+
+          - Prefer verifying \`SHA256SUMS\` after download.
+          - Builds are **ad-hoc signed / not notarized** unless you added secrets.
+          - If macOS blocks the app: \`xattr -cr /Applications/Hermes.app\` then open again.
+          - Confirm arch: \`file /Applications/Hermes.app/Contents/MacOS/Hermes\` → \`x86_64\`.
+          EOF
+          python3 - <<'PY' "${NOTES_FILE}"
+          import pathlib, sys
+          p = pathlib.Path(sys.argv[1])
+          lines = p.read_text().splitlines(True)
+          p.write_text("".join(line[10:] if line.startswith(" " * 10) else line for line in lines))
+          PY
+          echo "notes_file=${NOTES_FILE}" >> "$GITHUB_ENV"
+
+      - name: Upload artifacts (workflow)
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-desktop-mac-x64-release
+          path: |
+            dist/Hermes-*-mac-x64.dmg
+            dist/Hermes-*-mac-x64.zip
+            dist/SHA256SUMS
+            dist/build-info.txt
+          if-no-files-found: error
+
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Hermes-*-mac-x64.dmg
+            dist/Hermes-*-mac-x64.zip
+            dist/SHA256SUMS
+            dist/build-info.txt
+          body_path: ${{ env.notes_file }}
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

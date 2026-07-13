@@ -1,0 +1,33 @@
+# Build output
+/dist/
+*.dmg
+*.zip
+*.AppImage
+*.deb
+*.rpm
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node (if any local tooling is added at repo root)
+node_modules/
+npm-debug.log*
+.npm/
+
+# Upstream build artifacts (inside submodule; ignore if dirty)
+upstream/apps/desktop/release/
+upstream/apps/desktop/dist/
+upstream/node_modules/
+upstream/apps/desktop/node_modules/
+upstream/apps/shared/node_modules/
+upstream/apps/bootstrap-installer/node_modules/
+upstream/apps/bootstrap-installer/src-tauri/target/

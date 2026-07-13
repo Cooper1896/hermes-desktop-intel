@@ -1,0 +1,8 @@
+# Recorded upstream pin for humans (git submodule is source of truth).
+# Update this when you run: ./scripts/pin-upstream.sh <ref>
+
+repo=https://github.com/NousResearch/hermes-agent.git
+commit=e4ea0a0ed
+describe=v2026.7.7.2-420-ge4ea0a0ed
+desktop_version=0.17.0
+pinned_at=2026-07-13
