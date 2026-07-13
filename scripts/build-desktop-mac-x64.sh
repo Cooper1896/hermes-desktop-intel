@@ -30,32 +30,50 @@ npm install --workspace apps/desktop
 log "npm run build --workspace apps/desktop"
 npm run build --workspace apps/desktop
 
-log "electron-builder --mac --x64 (dmg + zip)"
-# Prefer dmg+zip; fall back if one target fails
+# electron-builder CLI: targets are positional after --mac, not after --x64.
+# package.json already lists mac.target: [dmg, zip] — prefer flags only.
+# Equivalent upstream scripts: dist:mac / dist:mac:dmg / dist:mac:zip
+log "electron-builder --mac --x64 (targets from package.json: dmg + zip)"
 set +e
-npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac --x64 dmg zip --publish=never
+npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac --x64 --publish=never
 BUILD_STATUS=$?
 set -e
 
 if [[ "$BUILD_STATUS" -ne 0 ]]; then
-  warn "dmg+zip build failed (exit ${BUILD_STATUS}); retrying zip only"
-  npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac --x64 zip --publish=never
+  warn "default mac targets failed (exit ${BUILD_STATUS}); retrying --mac dmg --x64"
+  set +e
+  npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac dmg --x64 --publish=never
+  BUILD_STATUS=$?
+  set -e
+fi
+
+if [[ "$BUILD_STATUS" -ne 0 ]]; then
+  warn "dmg failed (exit ${BUILD_STATUS}); retrying --mac zip --x64"
+  npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac zip --x64 --publish=never
 fi
 
 log "collecting artifacts into ${DIST_DIR}"
 # Remove previous desktop artifacts but keep other dist files (e.g. bootstrap)
-rm -f "${DIST_DIR}"/Hermes-*-mac-x64.* 2>/dev/null || true
-rm -rf "${DIST_DIR}/Hermes.app" 2>/dev/null || true
-
+# Use nullglob so empty globs do not error under bash; zsh users should run via bash.
 shopt -s nullglob
+rm -f "${DIST_DIR}"/Hermes-*-mac-x64.* || true
+rm -rf "${DIST_DIR}/Hermes.app" || true
+
 COPIED=0
 for f in "${DESKTOP_DIR}"/release/Hermes-*-mac-x64.*; do
+  # skip blockmaps in primary copy? keep them out of dist for cleaner ship set
+  case "$f" in
+    *.blockmap) continue ;;
+  esac
   cp -f "$f" "${DIST_DIR}/"
   log "copied $(basename "$f")"
   COPIED=1
 done
 # Also pick any arch-named variants electron-builder might emit
 for f in "${DESKTOP_DIR}"/release/Hermes-*x64*.dmg "${DESKTOP_DIR}"/release/Hermes-*x64*.zip; do
+  case "$f" in
+    *.blockmap) continue ;;
+  esac
   base="$(basename "$f")"
   if [[ ! -f "${DIST_DIR}/${base}" ]]; then
     cp -f "$f" "${DIST_DIR}/"

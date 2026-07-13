@@ -26,6 +26,16 @@ Config and agent data use the normal Hermes layout: `~/.hermes`.
 - **Python** `>=3.11` (for the agent runtime Hermes Desktop manages)
 - `git`, `codesign`, `lipo`, `file`
 
+If Homebrew is not writable, install Node into your home directory (example):
+
+```bash
+NODE_VER=22.17.0
+curl -fsSL "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-x64.tar.gz" \
+  | tar -xz -C "$HOME/.local"
+export PATH="$HOME/.local/node-v${NODE_VER}-darwin-x64/bin:$PATH"
+node -v   # v22.17.0
+```
+
 ### Build
 
 ```bash
