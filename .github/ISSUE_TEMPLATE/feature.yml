@@ -1,0 +1,22 @@
+name: 功能 / 改进建议 (Feature or Improvement)
+description: 对打包、脚本、文档或发布流程的建议
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议内容
+      description: 想增加或改进什么？
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 动机
+      description: 为什么需要它？解决什么痛点？
+  - type: textarea
+    id: notes
+    attributes:
+      label: 参考 / 备注
+      description: 相关链接、上游 issue、实现思路等。

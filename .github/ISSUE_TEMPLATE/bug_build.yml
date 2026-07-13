@@ -1,0 +1,40 @@
+name: 构建/发布问题 (Build or Release Issue)
+description: 构建失败、打包产物异常、发布流水线问题
+title: "[build] "
+labels: ["build"]
+body:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 问题范围
+      options:
+        - 本地构建 (scripts/build-desktop-mac-x64.sh)
+        - CI 构建 (Build macOS x64 Desktop workflow)
+        - 发布 (Release macOS x64 workflow)
+        - 子模块/上游同步 (pin-upstream.sh)
+    validations:
+      required: true
+  - type: input
+    id: upstream_ref
+    attributes:
+      label: 上游版本 / upstream ref
+      description: 当前 pin 的上游 commit 或 tag（见 upstream-ref.txt）
+      placeholder: "e.g. v0.17.0 或 a1b2c3d"
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 实际发生了什么？贴出关键报错。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望
+      description: 你期望的结果。
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 复现步骤
+      description: 粘贴 CI run 链接（gh run view <id>）或本地终端输出。
+      render: shell
