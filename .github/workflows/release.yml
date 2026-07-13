@@ -60,30 +60,24 @@ jobs:
           UPSTREAM_DESC=$(cd upstream && git describe --tags --always 2>/dev/null || echo "$UPSTREAM_SHA")
           DESKTOP_VER=$(node -p "require('./upstream/apps/desktop/package.json').version")
           NOTES_FILE="${RUNNER_TEMP}/release-notes.md"
-          cat > "${NOTES_FILE}" <<EOF
-          ## HDFI — unofficial Hermes Desktop for macOS Intel (x86_64)
-
-          **Not affiliated with Nous Research.** Official platform support does **not** include macOS Intel.
-
-          | | |
-          |---|---|
-          | Upstream | \`${UPSTREAM_DESC}\` (\`${UPSTREAM_SHA}\`) |
-          | Desktop package version | \`${DESKTOP_VER}\` |
-          | Built (UTC) | $(date -u +%Y-%m-%dT%H:%M:%SZ) |
-
-          ### Install notes
-
-          - Prefer verifying \`SHA256SUMS\` after download.
-          - Builds are **ad-hoc signed / not notarized** unless you added secrets.
-          - If macOS blocks the app: \`xattr -cr /Applications/Hermes.app\` then open again.
-          - Confirm arch: \`file /Applications/Hermes.app/Contents/MacOS/Hermes\` → \`x86_64\`.
-          EOF
-          python3 - <<'PY' "${NOTES_FILE}"
-          import pathlib, sys
-          p = pathlib.Path(sys.argv[1])
-          lines = p.read_text().splitlines(True)
-          p.write_text("".join(line[10:] if line.startswith(" " * 10) else line for line in lines))
-          PY
+          {
+            echo "## HDFI — unofficial Hermes Desktop for macOS Intel (x86_64)"
+            echo ""
+            echo "**Not affiliated with Nous Research.** Official platform support does **not** include macOS Intel."
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Upstream | \`${UPSTREAM_DESC}\` (\`${UPSTREAM_SHA}\`) |"
+            echo "| Desktop package version | \`${DESKTOP_VER}\` |"
+            echo "| Built (UTC) | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo ""
+            echo "### Install notes"
+            echo ""
+            echo "- Prefer verifying \`SHA256SUMS\` after download."
+            echo "- Builds are **ad-hoc signed / not notarized** unless you added secrets."
+            echo "- If macOS blocks the app: \`xattr -cr /Applications/Hermes.app\` then open again."
+            echo "- Confirm arch: \`file /Applications/Hermes.app/Contents/MacOS/Hermes\` → \`x86_64\`."
+          } > "${NOTES_FILE}"
           echo "notes_file=${NOTES_FILE}" >> "$GITHUB_ENV"
 
       - name: Upload artifacts (workflow)
