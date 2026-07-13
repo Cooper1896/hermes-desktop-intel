@@ -1,93 +1,67 @@
-# Building Hermes Desktop for macOS Intel (x86_64)
+# 本地构建说明
 
-This handbook covers local builds on an Intel Mac and how CI produces the same artifacts.
+在 Intel Mac 上从本仓库编出 Hermes Desktop x64。
 
-## Architecture notes
+## 结构
 
-| Piece | Location | Role |
-|-------|----------|------|
-| Electron shell | `upstream/apps/desktop` | Chat UI, settings, packaging |
-| Shared TS | `upstream/apps/shared` | Workspace package `@hermes/shared` |
-| Agent runtime | installed into `~/.hermes` at first run / via CLI | Python agent + `hermes serve` |
-| Bootstrap Setup | `upstream/apps/bootstrap-installer` | Optional Tauri first-run installer |
+| 部分 | 路径 | 说明 |
+|------|------|------|
+| 桌面壳 | `upstream/apps/desktop` | Electron + React |
+| 共享包 | `upstream/apps/shared` | `@hermes/shared` |
+| agent | 首次运行或 CLI 装到 `~/.hermes` | Python + `hermes serve` |
+| Setup 安装器 | `upstream/apps/bootstrap-installer` | Tauri，可选，经常有坑 |
 
-Primary deliverable is the **Desktop** Electron app. Bootstrap is best-effort.
+日常只要 Desktop 编出来就够用。
 
-## Environment
-
-### Required tools
+## 环境
 
 ```bash
 ./scripts/setup-deps.sh
 ```
 
-| Tool | Requirement |
-|------|-------------|
-| Node.js | `^20.19.0` or `>=22.12.0` (22 LTS recommended) |
-| npm | ships with Node |
-| Python | `>=3.11` (agent; Desktop may bootstrap a venv) |
-| Xcode CLT | `xcode-select -p` must succeed |
-| git, file, lipo, codesign, shasum | base system / CLT |
+- Node：`^20.19` 或 `>=22.12`（22 最省事）
+- Python ≥ 3.11
+- Xcode CLT：`xcode-select -p`
+- `git` / `file` / `lipo` / `codesign` / `shasum`
 
-Install Node on macOS (examples):
+装 Node：
 
 ```bash
-# Homebrew
 brew install node@22
-
-# or nvm
-nvm install 22
-nvm use 22
+# 或 nvm install 22
+# 或解压官方 darwin-x64 包到 ~/.local（见 README）
 ```
 
-### Electron download / mirrors
-
-If GitHub is slow or blocked when fetching Electron:
+Electron 下载慢：
 
 ```bash
 export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
 ```
 
-`@electron/get` still verifies SHASUMS against the mirror host. Prefer a mirror you trust, or leave unset to use the default.
+签名：
 
-### Code signing
+- 本地默认 `CSC_IDENTITY_AUTO_DISCOVERY=false`，编完跑 `./scripts/sign-adhoc.sh`
+- 有开发者证书再配 `CSC_LINK` 等，见 electron-builder 文档
 
-| Mode | When | Env |
-|------|------|-----|
-| Ad-hoc (default local) | No Apple Developer ID | `CSC_IDENTITY_AUTO_DISCOVERY=false`, then `./scripts/sign-adhoc.sh` |
-| Developer ID | You have certs | Set `CSC_LINK`, `CSC_KEY_PASSWORD`; optional notarization `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` |
-
-Without notarization, users may need:
+## 一键构建
 
 ```bash
-xattr -cr /Applications/Hermes.app
-```
-
-## Local build (recommended on Intel)
-
-```bash
-# From repo root
-git submodule update --init --recursive   # or ./scripts/pin-upstream.sh
 ./scripts/setup-deps.sh
 ./scripts/build-desktop-mac-x64.sh
 ./scripts/verify-mac-x64.sh
 ./scripts/sign-adhoc.sh
 ```
 
-### What the desktop build does
+脚本会在 `upstream/` 里：
 
-1. `npm install --workspace apps/desktop` (and workspace resolution for `apps/shared`) from the **upstream monorepo root**
-2. `npm run build --workspace apps/desktop` — Vite renderer + Electron main bundle + stage `node-pty`
-3. `npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac --x64 dmg zip --publish=never`
+1. `npm install --workspace apps/desktop`
+2. `npm run build --workspace apps/desktop`
+3. `npm run builder -- --mac --x64 --publish=never`  
+   （dmg/zip 写在 package.json 的 mac.target 里，不要把 dmg zip 写在 `--x64` 后面）
 
-Artifacts are copied to `dist/`:
+产物拷到仓库根目录 `dist/`。
 
-- `Hermes-<version>-mac-x64.dmg`
-- `Hermes-<version>-mac-x64.zip`
-- `Hermes.app` (when present under `release/mac` or `release/mac-x64`)
-- `SHA256SUMS` (from verify script)
-
-### Manual equivalent (upstream root)
+手动等价命令：
 
 ```bash
 cd upstream
@@ -96,110 +70,74 @@ npm run build --workspace apps/desktop
 export CSC_IDENTITY_AUTO_DISCOVERY=false
 npm_config_arch=x64 npm run builder --workspace apps/desktop -- --mac --x64 --publish=never
 file apps/desktop/release/mac/Hermes.app/Contents/MacOS/Hermes
-# or: release/mac-x64/Hermes.app/...
 ```
 
-## Optional: Bootstrap installer
+## 可选：Bootstrap
 
 ```bash
 ./scripts/build-bootstrap-mac-x64.sh
 ```
 
-Uses Tauri target `x86_64-apple-darwin`. Requires a Rust toolchain (`rustup target add x86_64-apple-darwin` if cross-building).
+要 Rust，`x86_64-apple-darwin` target。DMG 挂了就只会给你 `.app` 的 zip。
 
-If DMG packaging fails (seen on some Intel hosts), the script zips the `.app` instead.
-
-## Verification checklist
+## 验收
 
 ```bash
 ./scripts/verify-mac-x64.sh
 ```
 
-Must pass:
+主二进制必须是 x86_64；`node-pty` 里最好有 `darwin-x64`。  
+`dist/SHA256SUMS` 会列 dmg/zip。
 
-1. Main binary is **only** `x86_64` (not arm64-only)
-2. `node-pty` payload includes `darwin-x64` when staged inside the app
-3. `dist/SHA256SUMS` lists all shipped files
-
-Smoke test:
-
-1. Launch `dist/Hermes.app` (or install from DMG)
-2. Confirm app opens (Gatekeeper / `xattr` if needed)
-3. Complete or skip provider onboarding
-4. Send a short chat if a model/API is configured
-5. Confirm `~/.hermes` is used (same as CLI)
-
-## Upgrading upstream
+冒烟：
 
 ```bash
-# Pin to a tag or commit
-./scripts/pin-upstream.sh <tag-or-sha>
+open dist/Hermes.app
+# 被拦就：xattr -cr dist/Hermes.app
+```
 
-# Rebuild and re-verify
+## 升级上游
+
+```bash
+./scripts/pin-upstream.sh <tag 或 sha>
 ./scripts/build-desktop-mac-x64.sh
 ./scripts/verify-mac-x64.sh
+git add upstream upstream-ref.txt
+git commit -m "chore: bump upstream"
 ```
 
-Commit the submodule pointer change after a successful build:
+Intel 官方不支持，每次 bump 都建议本机点开跑一下。
 
-```bash
-git add upstream
-git commit -m "chore: pin upstream hermes-agent to <ref>"
-```
+## CI
 
-Intel is **unsupported** by Nous Research — re-run full verify after every pin.
+`.github/workflows/`：
 
-## CI notes
+- `build-mac-x64.yml` — push / PR 编一次，artifact 上传
+- `release.yml` — 推 `v*` tag 发 Release
 
-Workflows live under `.github/workflows/`.
+Runner 可能是 arm64，靠 electron-builder 交叉出 x64。发版前最好在真 Intel 上再验一遍。
 
-- Builds use Node 22 and recursive submodules.
-- Runners may be arm64 (`macos-14` / `macos-15`). Electron Builder can still emit `--x64` by downloading the x64 Electron runtime.
-- Prefer smoke-testing CI artifacts on a real Intel machine before wide distribution.
-- Optional repository variable: `ELECTRON_MIRROR`.
+仓库变量可设 `ELECTRON_MIRROR`。
 
-## Troubleshooting
+## 常见问题
 
-### Build stuck downloading Electron
-
-Clear cache and set a mirror:
+**卡在下 Electron**  
+清缓存 + 换 mirror：
 
 ```bash
 rm -f "$HOME/Library/Caches/electron"/electron-*.zip
 export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
-./scripts/build-desktop-mac-x64.sh
 ```
 
-### `node-pty` missing for darwin-x64
+**编出来是 arm64**  
+确认带了 `--x64` 和 `npm_config_arch=x64`，别在 arm 机器上裸跑默认 pack。
 
-`verify-mac-x64.sh` fails if prebuilds/build output for x64 are absent. From upstream:
-
-```bash
-cd upstream
-npx electron-rebuild -f -w node-pty -v "$(node -p "require('apps/desktop/package.json').devDependencies.electron.replace(/^[^0-9]*/, '')")"
-# then re-run desktop build with npm_config_arch=x64
-```
-
-Exact rebuild flags may vary with Electron version; prefer node-pty prebuilds when available.
-
-### App is arm64 after build
-
-Ensure you passed `--x64` and `npm_config_arch=x64`. Do not run a default host-only pack on an arm64 machine without those flags if the goal is Intel artifacts.
-
-### App won't open (damaged / unidentified developer)
+**打不开 / 已损坏**  
 
 ```bash
 codesign --force --deep --sign - /path/to/Hermes.app
 xattr -cr /path/to/Hermes.app
 ```
 
-### Workspace install fails
-
-Install from the **hermes-agent monorepo root** (`upstream/`), not only `apps/desktop`, so workspaces resolve.
-
-## Out of scope for HDFI v1
-
-- Official Nous Research release channel
-- Universal (arm64 + x64) fat binaries
-- Windows / Linux packaging
-- Changes to agent learning / skills logic
+**npm workspace 报错**  
+一定在 monorepo 根（`upstream/`）装依赖，不要只进 `apps/desktop` 瞎装。

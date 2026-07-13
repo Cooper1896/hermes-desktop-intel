@@ -1,122 +1,133 @@
-# HDFI — Hermes Desktop for Intel (macOS x86_64)
+# hermes-desktop-intel
 
-**Unofficial** build and release pipeline for [Nous Research Hermes Desktop](https://github.com/NousResearch/hermes-agent) on **macOS Intel (x86_64)**.
+非官方的 [Hermes Desktop](https://github.com/NousResearch/hermes-agent) **macOS Intel (x86_64)** 构建。
 
-Official public macOS installers are **arm64-only**. Nous Research lists **macOS on Intel processors** as [unsupported](https://hermes-agent.nousresearch.com/docs/getting-started/platform-support). Community verification shows the Electron desktop app still builds as `x86_64` from unmodified upstream source ([issue #60054](https://github.com/NousResearch/hermes-agent/issues/60054)). HDFI packages that path into a reproducible project with scripts and CI.
+官方下载页的 Mac 包基本是 arm64，Intel 机器装不上。上游文档也写了 [Intel Mac 不在支持列表](https://hermes-agent.nousresearch.com/docs/getting-started/platform-support)。源码其实能编出 x64（见 [issue #60054](https://github.com/NousResearch/hermes-agent/issues/60054)），这个仓库就是把那条路固定成脚本和 Release，方便自己编或直接下包。
 
-> Not affiliated with Nous Research. Not the same project as community [Hermes One](https://github.com/fathah/hermes-desktop) (`fathah/hermes-desktop`).
+**跟 Nous Research 没关系。** 也不是 [Hermes One](https://github.com/fathah/hermes-desktop) 那个社区壳。
 
-## What you get
+配置、会话还是走官方那套 `~/.hermes`。
 
-| Artifact | Description |
-|----------|-------------|
-| `Hermes-*-mac-x64.dmg` | Electron desktop shell installer (primary) |
-| `Hermes-*-mac-x64.zip` | Same app as zip |
-| Optional Setup `.app` | Tauri bootstrap installer (best-effort; DMG may fail) |
+---
 
-Config and agent data use the normal Hermes layout: `~/.hermes`.
+## 直接用（推荐）
 
-## Quick start (Intel Mac)
+到 [Releases](../../releases) 下对应版本的：
 
-### Prerequisites
+- `Hermes-*-mac-x64.dmg` — 拖进「应用程序」
+- 或 `.zip` 解压出 `Hermes.app`
 
-- macOS 12+ on **Intel (x86_64)**
-- [Xcode Command Line Tools](https://developer.apple.com/xcode/)
-- **Node.js** `^20.19` or `>=22.12` (22 LTS recommended)
-- **Python** `>=3.11` (for the agent runtime Hermes Desktop manages)
-- `git`, `codesign`, `lipo`, `file`
-
-If Homebrew is not writable, install Node into your home directory (example):
+没苹果开发者签名，第一次打开可能被拦：
 
 ```bash
-NODE_VER=22.17.0
-curl -fsSL "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-x64.tar.gz" \
-  | tar -xz -C "$HOME/.local"
-export PATH="$HOME/.local/node-v${NODE_VER}-darwin-x64/bin:$PATH"
-node -v   # v22.17.0
-```
-
-### Build
-
-```bash
-git clone --recurse-submodules <this-repo-url> HDFI
-cd HDFI
-
-./scripts/setup-deps.sh
-./scripts/pin-upstream.sh          # init submodule if needed
-./scripts/build-desktop-mac-x64.sh
-./scripts/verify-mac-x64.sh
-./scripts/sign-adhoc.sh            # required without Apple Developer ID
-```
-
-Outputs land in `dist/`.
-
-### Install & Gatekeeper
-
-Unsigned / ad-hoc signed builds may be blocked by macOS:
-
-```bash
-# After copying Hermes.app to /Applications:
+# 装到 /Applications 之后
 xattr -cr /Applications/Hermes.app
-# Or open once via right-click → Open
 ```
 
-Verify architecture:
+或者在 Finder 里右键 → 打开。
+
+确认是 Intel 包：
 
 ```bash
 file /Applications/Hermes.app/Contents/MacOS/Hermes
-# expect: Mach-O 64-bit executable x86_64
+# 应该看到：Mach-O 64-bit executable x86_64
 ```
 
-## Project layout
-
-```
-HDFI/
-├── upstream/                 # git submodule → NousResearch/hermes-agent
-├── scripts/                  # pin, setup, build, sign, verify
-├── docs/BUILD.md             # detailed build handbook
-├── .github/workflows/        # CI + release
-└── dist/                     # local build output (gitignored)
-```
-
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/setup-deps.sh` | Check toolchain (Node, Python, Xcode CLT, …) |
-| `scripts/pin-upstream.sh` | Init/update submodule; optional pin to ref |
-| `scripts/build-desktop-mac-x64.sh` | Build Electron Desktop for `mac-x64` |
-| `scripts/build-bootstrap-mac-x64.sh` | Optional Tauri Setup for `x86_64-apple-darwin` |
-| `scripts/sign-adhoc.sh` | Ad-hoc codesign (`codesign -s -`) |
-| `scripts/verify-mac-x64.sh` | Assert x86_64 + write `dist/SHA256SUMS` |
-
-Pin or upgrade upstream:
+校验哈希（有 `SHA256SUMS` 的话）：
 
 ```bash
-./scripts/pin-upstream.sh v1.2.3          # tag or commit
-./scripts/pin-upstream.sh                 # use currently recorded submodule SHA
+shasum -a 256 -c SHA256SUMS
 ```
 
-## CI
+需要 **macOS 12+、Intel 芯片**。Apple Silicon 请用官方包。
 
-- **`build-mac-x64.yml`** — build on push/PR/`workflow_dispatch`, upload artifacts
-- **`release.yml`** — on tag `v*`, build and attach files to a GitHub Release
+---
 
-CI may run on Apple Silicon runners and **cross-compile** Electron for `--x64`. Always re-verify `file`/`lipo` output; smoke-test on a real Intel Mac before relying on a release.
+## 自己编译
 
-## Security
+### 依赖
 
-- Prefer artifacts from **your** CI or a local build; check `SHA256SUMS`.
-- Ad-hoc signed builds are **not** notarized. Do not treat them like official signed releases.
-- Upstream agent can run tools and access files — same trust model as official Hermes.
+- Intel Mac + Xcode CLT
+- Node `^20.19` 或 `>=22.12`（建议 22）
+- Python ≥ 3.11（跑 agent 用）
+- git
+
+Homebrew 不好使时可以装到家目录：
+
+```bash
+NODE_VER=22.17.0
+mkdir -p "$HOME/.local"
+curl -fsSL "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-x64.tar.gz" \
+  | tar -xz -C "$HOME/.local"
+export PATH="$HOME/.local/node-v${NODE_VER}-darwin-x64/bin:$PATH"
+```
+
+### 步骤
+
+```bash
+git clone --recurse-submodules https://github.com/Cooper1896/hermes-desktop-intel.git
+cd hermes-desktop-intel
+
+./scripts/setup-deps.sh
+./scripts/build-desktop-mac-x64.sh
+./scripts/verify-mac-x64.sh
+./scripts/sign-adhoc.sh
+```
+
+产物在 `dist/`。细节见 [docs/BUILD.md](docs/BUILD.md)。
+
+Electron 下不动可以试：
+
+```bash
+export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+```
+
+### 换上游版本
+
+```bash
+./scripts/pin-upstream.sh <tag 或 commit>
+# 编通之后再 commit 一次 submodule 指针
+```
+
+---
+
+## 仓库里有什么
+
+```
+scripts/          依赖检查、构建、校验、ad-hoc 签名
+upstream/         submodule → NousResearch/hermes-agent（钉死某个 commit）
+docs/BUILD.md     构建说明
+.github/workflows CI（push / tag 时编 x64）
+dist/             本地产物，不进 git
+```
+
+| 脚本 | 干啥 |
+|------|------|
+| `setup-deps.sh` | 检查 Node / Python / CLT |
+| `pin-upstream.sh` | 初始化或钉上游 |
+| `build-desktop-mac-x64.sh` | 编 Electron 桌面端 |
+| `verify-mac-x64.sh` | 确认是 x86_64，写 SHA256SUMS |
+| `sign-adhoc.sh` | 没证书时用 `codesign -s -` |
+| `build-bootstrap-mac-x64.sh` | 可选，Tauri Setup，经常翻车 |
+
+---
+
+## 注意
+
+- Release 里的包多半是 **ad-hoc 签名、没公证**，别当官方安装包。
+- 下载完对一下 `SHA256SUMS` 再好。
+- Hermes 能跑命令、动文件，信任模型和官方一样，别乱下不明来源的包。
+- 官方随时可能改 desktop 构建方式；Intel 本来就不 support，升级上游后自己再测一遍。
+
+---
 
 ## License
 
-MIT (see [LICENSE](./LICENSE)). Upstream Hermes Agent is MIT-licensed; copyright remains with its authors.
+MIT，见 [LICENSE](./LICENSE)。  
+上游 [hermes-agent](https://github.com/NousResearch/hermes-agent) 也是 MIT，版权归原作者。
 
-## References
+## 链接
 
-- [Hermes Desktop docs](https://hermes-agent.nousresearch.com/docs/user-guide/desktop)
-- [Platform support](https://hermes-agent.nousresearch.com/docs/getting-started/platform-support)
-- [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
-- [Intel artifact request / local proof](https://github.com/NousResearch/hermes-agent/issues/60054)
+- [Desktop 文档](https://hermes-agent.nousresearch.com/docs/user-guide/desktop)
+- [平台支持说明](https://hermes-agent.nousresearch.com/docs/getting-started/platform-support)
+- [上游仓库](https://github.com/NousResearch/hermes-agent)
