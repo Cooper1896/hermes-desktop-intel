@@ -1,7 +1,5 @@
 # hermes-desktop-intel
 
-# hermes-desktop-intel
-
 本项目提供 [Hermes Desktop](https://github.com/NousResearch/hermes-agent) 针对 **macOS Intel (x86_64)** 架构的非官方构建方案。
 This project provides unofficial build solutions and binary artifacts for [Hermes Desktop](https://github.com/NousResearch/hermes-agent) targeted at the **macOS Intel (x86_64)** architecture.
 
