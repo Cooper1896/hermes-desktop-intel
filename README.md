@@ -2,12 +2,6 @@
 
 非官方的 [Hermes Desktop](https://github.com/NousResearch/hermes-agent) **macOS Intel (x86_64)** 构建。
 
-官方下载页的 Mac 包基本是 arm64，Intel 机器装不上。上游文档也写了 [Intel Mac 不在支持列表](https://hermes-agent.nousresearch.com/docs/getting-started/platform-support)。源码其实能编出 x64（见 [issue #60054](https://github.com/NousResearch/hermes-agent/issues/60054)），这个仓库就是把那条路固定成脚本和 Release，方便自己编或直接下包。
-
-**跟 Nous Research 没关系。** 也不是 [Hermes One](https://github.com/fathah/hermes-desktop) 那个社区壳。
-
-配置、会话还是走官方那套 `~/.hermes`。
-
 ---
 
 ## 直接用（推荐）
@@ -17,29 +11,7 @@
 - `Hermes-*-mac-x64.dmg` — 拖进「应用程序」
 - 或 `.zip` 解压出 `Hermes.app`
 
-没苹果开发者签名，第一次打开可能被拦：
-
-```bash
-# 装到 /Applications 之后
-xattr -cr /Applications/Hermes.app
-```
-
-或者在 Finder 里右键 → 打开。
-
-确认是 Intel 包：
-
-```bash
-file /Applications/Hermes.app/Contents/MacOS/Hermes
-# 应该看到：Mach-O 64-bit executable x86_64
-```
-
-校验哈希（有 `SHA256SUMS` 的话）：
-
-```bash
-shasum -a 256 -c SHA256SUMS
-```
-
-需要 **macOS 12+、Intel 芯片**。Apple Silicon 请用官方包。
+Apple Silicon 请用官方包。
 
 ---
 
@@ -51,16 +23,6 @@ shasum -a 256 -c SHA256SUMS
 - Node `^20.19` 或 `>=22.12`（建议 22）
 - Python ≥ 3.11（跑 agent 用）
 - git
-
-Homebrew 不好使时可以装到家目录：
-
-```bash
-NODE_VER=22.17.0
-mkdir -p "$HOME/.local"
-curl -fsSL "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-x64.tar.gz" \
-  | tar -xz -C "$HOME/.local"
-export PATH="$HOME/.local/node-v${NODE_VER}-darwin-x64/bin:$PATH"
-```
 
 ### 步骤
 
